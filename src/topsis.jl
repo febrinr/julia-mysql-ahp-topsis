@@ -23,7 +23,7 @@ function build_weighted_normalized_matrix()
 
     weighted_normalized = []
     
-    decision_matrix = DBInterface.execute(statement)
+    decision_matrix = DBInterface.execute(retrieve_statement)
 
     for alternative_scores in decision_matrix
         weighted_normalized_alternative_scores = []

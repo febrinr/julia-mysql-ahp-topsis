@@ -1,3 +1,6 @@
+using DotEnv
 using MySQL
 
-conn = DBInterface.connect(MySQL.Connection, "localhost", "root", "", db = "ahp_topsis")
+DotEnv.load!()
+
+conn = DBInterface.connect(MySQL.Connection, ENV["MYSQL_HOST"], ENV["MYSQL_USER"], ENV["MYSQL_PASSWORD"], db = ENV["MYSQL_DATABASE"])

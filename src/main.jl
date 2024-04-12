@@ -17,23 +17,9 @@ ahp_result = ahp()
 criteria_type = ["benefit", "benefit", "benefit"]
 weight = ahp_result["priority_vector"]
 
-# sql = "SELECT cleanliness_rating AS `1`, guest_satisfaction_overall AS `2`, bedrooms AS `3` FROM airbnb;"
-# sql_result = DBInterface.execute(conn, sql)
-# decision_matrix = []
-
-# for result_row in sql_result
-#     row = []
-
-#     for score in result_row
-#         push!(row, score)
-#     end
-
-#     push!(decision_matrix, row)
-# end
-
-sql = "SELECT cleanliness_rating AS `1`, guest_satisfaction_overall AS `2`, bedrooms AS `3` FROM airbnb;"
-statement = DBInterface.prepare(conn, sql)
-decision_matrix = DBInterface.execute(statement)
+retrieve_query = "SELECT cleanliness_rating AS `1`, guest_satisfaction_overall AS `2`, bedrooms AS `3` FROM airbnb;"
+retrieve_statement = DBInterface.prepare(conn, retrieve_query)
+decision_matrix = DBInterface.execute(retrieve_statement)
 
 topsis_result = topsis()
 
