@@ -1,4 +1,4 @@
-function ahp()
+function ahp(comparison_matrix, number_of_criteria)
     random_index = Dict(
         1 => 0.00,
         2 => 0.00,
@@ -23,5 +23,5 @@ function ahp()
     
     consistency_ratio = consistency_index / random_index[number_of_criteria]
 
-    return Dict("priority_vector" => priority_vector, "consistency_ratio" => consistency_ratio)
+    return priority_vector, consistency_ratio
 end
