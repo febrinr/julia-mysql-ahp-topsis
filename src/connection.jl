@@ -1,6 +1,13 @@
-using DotEnv
-using MySQL
+if ENV["APP_ENV"] == "test"
+    db_name = ENV["MYSQL_DATABASE_TEST"]
+elseif ENV["APP_ENV"] == "hajj"
+    db_name = ENV["MYSQL_DATABASE"]
+end
 
-DotEnv.load!()
-
-conn = DBInterface.connect(MySQL.Connection, ENV["MYSQL_HOST"], ENV["MYSQL_USER"], ENV["MYSQL_PASSWORD"], db = ENV["MYSQL_DATABASE"])
+conn = DBInterface.connect(
+    MySQL.Connection,
+    ENV["MYSQL_HOST"],
+    ENV["MYSQL_USER"],
+    ENV["MYSQL_PASSWORD"],
+    db = db_name
+)

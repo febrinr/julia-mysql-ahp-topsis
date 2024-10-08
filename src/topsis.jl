@@ -1,141 +1,64 @@
-using StatsBase
+function calculate_normalized_matrix(decision_matrix)
+    denominators = sum(x -> x^2, decision_matrix, dims=1).^0.5
 
-function build_denominators_for_normalization()
-    sum_matrix_columns = zeros(Float64, 1, number_of_criteria)
-
-    for alternative_scores in decision_matrix
-        for (index, score) in enumerate(alternative_scores)
-            sum_matrix_columns[index] += score^2
-        end
-    end
-
-    denominators = []
-
-    for sum_score in sum_matrix_columns
-        push!(denominators, sqrt(sum_score))
-    end
-
-    return denominators
+    return decision_matrix ./ denominators
 end
 
-function build_weighted_normalized_matrix()
-    denominators = build_denominators_for_normalization()
-
-    weighted_normalized = []
+function get_ideal_solutions(weighted_normalized_matrix)
+    positive_ideal_solutions = zeros(Float64, number_of_criteria, 1)
+    negative_ideal_solutions = zeros(Float64, number_of_criteria, 1)
     
-    decision_matrix = DBInterface.execute(retrieve_statement)
-
-    for alternative_scores in decision_matrix
-        weighted_normalized_alternative_scores = []
-
-        for column_number in 1:number_of_criteria
-            weighted_normalized_score = weight[column_number] * alternative_scores[column_number] / denominators[column_number]
-            
-            push!(weighted_normalized_alternative_scores, weighted_normalized_score)
-        end
-        
-        push!(weighted_normalized, weighted_normalized_alternative_scores)
-    end
-
-    return weighted_normalized
-end
-
-function build_matrix_for_ideal_solution(weighted_normalized)
-    matrix_for_ideal_solution = []
-
-    for _ in 1:number_of_criteria
-        push!(matrix_for_ideal_solution, [])
-    end
-    
-    for weighted_scores in weighted_normalized
-        for (index, score) in enumerate(weighted_scores)
-            push!(matrix_for_ideal_solution[index], score)
-        end
-    end
-
-    return matrix_for_ideal_solution
-end
-
-function get_ideal_solutions(matrix_for_ideal_solution)
-    positive_ideal_solutions = zeros(Float64, 1, number_of_criteria)
-    negative_ideal_solutions = zeros(Float64, 1, number_of_criteria)
-    
-    for (index, ideal_solution_scores) in enumerate(matrix_for_ideal_solution)
+    for index in 1:number_of_criteria
         if criteria_type[index] == "benefit"
-            positive_ideal_solutions[index] = maximum(ideal_solution_scores)
-            negative_ideal_solutions[index] = minimum(ideal_solution_scores)
+            positive_ideal_solutions[index] = maximum(weighted_normalized_matrix[:, index])
+            negative_ideal_solutions[index] = minimum(weighted_normalized_matrix[:, index])
         else
-            positive_ideal_solutions[index] = minimum(ideal_solution_scores)
-            negative_ideal_solutions[index] = maximum(ideal_solution_scores)
+            positive_ideal_solutions[index] = minimum(weighted_normalized_matrix[:, index])
+            negative_ideal_solutions[index] = maximum(weighted_normalized_matrix[:, index])
         end
     end
     
-    return Dict("positive" => positive_ideal_solutions, "negative" => negative_ideal_solutions)
+    return positive_ideal_solutions, negative_ideal_solutions
 end
 
-function get_distance_from_ideal_solution(weighted_normalized, ideal_solutions)
-    distance_from_positive = []
-    distance_from_negative = []
+function get_distance_from_ideal_solutions(number_of_alternatives, weighted_normalized_matrix, positive_ideal_solutions, negative_ideal_solutions)
+    distance_from_positive = zeros(Float64, number_of_alternatives, 1)
+    distance_from_negative = zeros(Float64, number_of_alternatives, 1)
 
-    for weighted_scores in weighted_normalized
-        sum_positive_distance = 0
-        sum_negative_distance = 0
-
-        for (index, weighted_score) in enumerate(weighted_scores)
-            sum_positive_distance += (ideal_solutions["positive"][index] - weighted_score)^2
-            sum_negative_distance += (weighted_score - ideal_solutions["negative"][index])^2
-        end
-
-        positive_distance = sqrt(sum_positive_distance)
-        negative_distance = sqrt(sum_negative_distance)
-        
-        push!(distance_from_positive, positive_distance)
-        push!(distance_from_negative, negative_distance)
+    for index in 1:number_of_alternatives
+        distance_from_positive[index] = sum((weighted_normalized_matrix[index, :] - positive_ideal_solutions).^2)^0.5
+        distance_from_negative[index] = sum((weighted_normalized_matrix[index, :] - negative_ideal_solutions).^2)^0.5
     end
 
-    return Dict("positive" => distance_from_positive, "negative" => distance_from_negative)
+    return distance_from_positive, distance_from_negative
 end
 
-function get_distance_from_negative_ideal(weighted_normalized, negative_ideal_solutions)
-    distance_from_negative = []
+function get_performance_scores(number_of_alternatives, distance_from_positive, distance_from_negative)
+    performance_scores = zeros(Float64, number_of_alternatives, 1)
 
-    for weighted_scores in weighted_normalized
-        sum_distance = 0
-
-        for (index, weighted_score) in enumerate(weighted_scores)
-            sum_distance = sum_distance + (weighted_score - negative_ideal_solutions[index])^2
-        end
-
-        distance = sqrt(sum_distance)
-        
-        push!(distance_from_negative, distance)
+    for index in 1:number_of_alternatives
+        performance_scores[index] = distance_from_negative[index] / (distance_from_positive[index] + distance_from_negative[index])
     end
 
-    return distance_from_negative
+    return performance_scores
 end
 
-function get_relative_closeness_to_ideal_solution(distance_from)
-    relative_closenesses = []
+function topsis(decision_matrix, priority_vector, number_of_alternatives)
+    normalized_matrix = calculate_normalized_matrix(decision_matrix)
 
-    for (index, positive_distance) in enumerate(distance_from["positive"])
-        negative_distance = distance_from["negative"][index]
-        relative_closeness = negative_distance / (positive_distance + negative_distance)
-        
-        push!(relative_closenesses, relative_closeness)
-    end
+    weighted_normalized_matrix = normalized_matrix .* priority_vector
 
-    return relative_closenesses
-end
+    positive_ideal_solutions, negative_ideal_solutions = get_ideal_solutions(weighted_normalized_matrix)
 
-function topsis()
-    weighted_normalized = build_weighted_normalized_matrix()
-    matrix_for_ideal_solution = build_matrix_for_ideal_solution(weighted_normalized)
-    ideal_solutions = get_ideal_solutions(matrix_for_ideal_solution)
-    distance_from = get_distance_from_ideal_solution(weighted_normalized, ideal_solutions)
-    relative_closenesses = get_relative_closeness_to_ideal_solution(distance_from)
+    distance_from_positive, distance_from_negative = get_distance_from_ideal_solutions(
+        number_of_alternatives,
+        weighted_normalized_matrix,
+        positive_ideal_solutions,
+        negative_ideal_solutions
+    )
 
-    rank = ordinalrank(relative_closenesses)
-    # rank = ordinalrank(relative_closenesses, rev=true)
+    performance_scores = get_performance_scores(number_of_alternatives, distance_from_positive, distance_from_negative)
+    ranks = ordinalrank(performance_scores, rev=true)
     
-    return Dict("relative_closenesses" => relative_closenesses, "rank" => rank)
+    return performance_scores, ranks
 end
